@@ -365,6 +365,9 @@
 
             <!-- 結果表示エリア -->
             <div class="results" id="results">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <button style="background: #4caf50; color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-size: 1rem; font-weight: bold; box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);" onclick="downloadCSV()">📥 結果をCSVダウンロード</button>
+                </div>
                 <div class="section">
                     <h2 class="section-title">6軸評価レーダーチャート</h2>
                     <div class="chart-container">
@@ -398,6 +401,9 @@
         // Chart.jsの読み込み状態
         let chartJsLoaded = false;
         let radarChartInstance = null;
+
+        // 計算結果を保存（CSV出力用）
+        let lastCalculationData = null;
 
         // ページ読み込み時の初期化
         document.addEventListener('DOMContentLoaded', function() {
@@ -486,6 +492,15 @@
             const metrics = calculateMetrics(inputs, cashFlow);
             const grades = calculateGrades(metrics);
             const radarData = calculateRadarData(metrics);
+
+            // 計算結果を保存（CSV出力用）
+            lastCalculationData = {
+                inputs: inputs,
+                cashFlow: cashFlow,
+                metrics: metrics,
+                grades: grades,
+                timestamp: new Date()
+            };
 
             // 結果表示
             displayRadarChart(radarData);
@@ -968,6 +983,139 @@
                 const gradeCell = row.insertCell(3);
                 gradeCell.innerHTML = `<span class="grade grade-${item.grade}">${item.grade}</span>`;
             });
+        }
+
+        // CSV生成関数
+        function generateCSV() {
+            if (!lastCalculationData) {
+                alert('計算結果がありません。先に「収益性を評価する」ボタンをクリックしてください。');
+                return null;
+            }
+
+            const { inputs, cashFlow, metrics, grades, timestamp } = lastCalculationData;
+
+            // CSVヘッダーとデータを作成
+            let csv = '';
+
+            // タイトルと日時
+            csv += '不動産収益性評価ツール - 計算結果\n';
+            csv += '計算日時,' + timestamp.toLocaleString('ja-JP') + '\n';
+            csv += '\n';
+
+            // 入力データセクション
+            csv += '=== 入力データ ===\n';
+            csv += 'カテゴリ,項目,値,単位\n';
+            csv += '物件基本情報,物件タイプ,' + inputs.propertyType + ',\n';
+            csv += '物件基本情報,物件価格,' + inputs.propertyPrice + ',万円\n';
+            csv += '物件基本情報,年間家賃収入（満室想定）,' + inputs.annualRent + ',万円\n';
+            csv += '運営経費,年間管理費,' + inputs.managementFee + ',万円\n';
+            csv += '運営経費,年間修繕積立金・維持費,' + inputs.maintenanceFee + ',万円\n';
+            csv += '運営経費,年間固定資産税等,' + inputs.propertyTax + ',万円\n';
+            csv += '運営経費,その他経費,' + inputs.otherExpenses + ',万円\n';
+            csv += 'ローン条件,借入額,' + inputs.loanAmount + ',万円\n';
+            csv += 'ローン条件,金利,' + inputs.interestRate + ',%\n';
+            csv += 'ローン条件,借入期間,' + inputs.loanTerm + ',年\n';
+            csv += 'リスク想定,想定空室率,' + inputs.vacancyRate + ',%\n';
+            csv += 'リスク想定,年間家賃下落率,' + inputs.rentDeclineRate + ',%\n';
+            csv += '自己資金,初期投資額,' + inputs.initialInvestment + ',万円\n';
+            csv += '\n';
+
+            // キャッシュフロー情報
+            csv += '=== キャッシュフロー情報 ===\n';
+            csv += '項目,値,単位\n';
+            csv += '実質年間家賃収入,' + cashFlow.effectiveAnnualRent.toFixed(2) + ',万円\n';
+            csv += '年間経費合計,' + cashFlow.totalExpenses.toFixed(2) + ',万円\n';
+            csv += '年間純収益（NOI）,' + cashFlow.noi.toFixed(2) + ',万円\n';
+            csv += '年間返済額,' + cashFlow.annualPayment.toFixed(2) + ',万円\n';
+            csv += '年間税引前CF,' + cashFlow.beforeTaxCF.toFixed(2) + ',万円\n';
+            csv += '年間税引後CF,' + cashFlow.afterTaxCF.toFixed(2) + ',万円\n';
+            csv += '\n';
+
+            // 評価指標セクション
+            csv += '=== 評価指標（12指標） ===\n';
+            csv += 'カテゴリ,指標名,計算値,単位,評価ランク\n';
+
+            // キャッシュフロー系
+            csv += 'キャッシュフロー系,表面利回り,' + metrics.grossYield.toFixed(2) + ',%,' + grades.grossYield + '\n';
+            csv += 'キャッシュフロー系,実質利回り,' + metrics.netYield.toFixed(2) + ',%,' + grades.netYield + '\n';
+            csv += 'キャッシュフロー系,FCR,' + metrics.fcr.toFixed(2) + ',%,' + grades.fcr + '\n';
+            csv += 'キャッシュフロー系,CCR,' + metrics.ccr.toFixed(2) + ',%,' + grades.ccr + '\n';
+
+            // 投資効率系
+            csv += '投資効率系,ROI（10年）,' + metrics.roi.toFixed(2) + ',%,' + grades.roi + '\n';
+            csv += '投資効率系,IRR,' + metrics.irr.toFixed(2) + ',%,' + grades.irr + '\n';
+            csv += '投資効率系,回収期間,' + metrics.paybackPeriod.toFixed(1) + ',年,' + grades.paybackPeriod + '\n';
+
+            // リスク系
+            csv += 'リスク系,実質空室率,' + metrics.vacancyRate.toFixed(1) + ',%,' + grades.vacancyRate + '\n';
+            csv += 'リスク系,返済比率,' + metrics.debtServiceRatio.toFixed(2) + ',%,' + grades.debtServiceRatio + '\n';
+            csv += 'リスク系,DSCR,' + metrics.dscr.toFixed(2) + ',,' + grades.dscr + '\n';
+
+            // 資産価値系
+            csv += '資産価値系,DCF評価額,' + metrics.dcfValue.toFixed(0) + ',万円,' + grades.dcfRatio + '\n';
+            csv += '資産価値系,キャップレート,' + metrics.capRate.toFixed(2) + ',%,' + grades.capRate + '\n';
+            csv += '\n';
+
+            // 6軸評価サマリー
+            csv += '=== 6軸評価サマリー ===\n';
+            csv += '評価軸,評価ランク,スコア\n';
+            csv += '収益性（表面利回り）,' + grades.grossYield + ',' + gradeToScore(grades.grossYield) + '\n';
+            csv += '実質収益（実質利回り）,' + grades.netYield + ',' + gradeToScore(grades.netYield) + '\n';
+            csv += 'CF効率（FCR）,' + grades.fcr + ',' + gradeToScore(grades.fcr) + '\n';
+            csv += '投資効率（回収期間）,' + grades.paybackPeriod + ',' + gradeToScore(grades.paybackPeriod) + '\n';
+            csv += '安全性（DSCR）,' + grades.dscr + ',' + gradeToScore(grades.dscr) + '\n';
+            csv += '資産価値（評価額/購入価格）,' + grades.dcfRatio + ',' + gradeToScore(grades.dcfRatio) + '\n';
+            csv += '\n';
+
+            // 総合評価
+            const totalScore = gradeToScore(grades.grossYield) + gradeToScore(grades.netYield) +
+                              gradeToScore(grades.fcr) + gradeToScore(grades.paybackPeriod) +
+                              gradeToScore(grades.dscr) + gradeToScore(grades.dcfRatio);
+            const averageScore = (totalScore / 6).toFixed(2);
+            csv += '=== 総合評価 ===\n';
+            csv += '項目,値\n';
+            csv += '6軸合計スコア,' + totalScore + ' / 30\n';
+            csv += '6軸平均スコア,' + averageScore + ' / 5.0\n';
+
+            return csv;
+        }
+
+        // CSVダウンロード関数
+        function downloadCSV() {
+            const csv = generateCSV();
+            if (!csv) return;
+
+            // BOM付きUTF-8でエンコード（Excelで正しく開けるように）
+            const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+            const blob = new Blob([bom, csv], { type: 'text/csv;charset=utf-8;' });
+
+            // ファイル名生成（日時付き）
+            const timestamp = new Date();
+            const fileName = '不動産評価結果_' +
+                           timestamp.getFullYear() +
+                           ('0' + (timestamp.getMonth() + 1)).slice(-2) +
+                           ('0' + timestamp.getDate()).slice(-2) + '_' +
+                           ('0' + timestamp.getHours()).slice(-2) +
+                           ('0' + timestamp.getMinutes()).slice(-2) +
+                           '.csv';
+
+            // ダウンロード実行
+            const link = document.createElement('a');
+            if (link.download !== undefined) {
+                const url = URL.createObjectURL(blob);
+                link.setAttribute('href', url);
+                link.setAttribute('download', fileName);
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+
+                console.log('CSV出力完了:', fileName);
+                updateStatus('CSV出力完了');
+            } else {
+                alert('お使いのブラウザではダウンロード機能がサポートされていません。');
+            }
         }
     </script>
 </body>
