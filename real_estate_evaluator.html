@@ -393,6 +393,33 @@
                         </tbody>
                     </table>
                 </div>
+
+                <!-- 5年分キャッシュフローグラフ -->
+                <div class="section">
+                    <h2 class="section-title">5年分キャッシュフロー推移</h2>
+                    <div class="chart-container">
+                        <canvas id="cashFlowChart"></canvas>
+                    </div>
+                    <!-- データテーブル -->
+                    <div style="margin-top: 20px; overflow-x: auto;">
+                        <table id="cashFlowTable" style="width: 100%; border-collapse: collapse; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1); border-radius: 10px; overflow: hidden;">
+                            <thead style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                                <tr>
+                                    <th style="padding: 12px; text-align: center;">年</th>
+                                    <th style="padding: 12px; text-align: center;">実質家賃収入</th>
+                                    <th style="padding: 12px; text-align: center;">年間経費</th>
+                                    <th style="padding: 12px; text-align: center;">NOI</th>
+                                    <th style="padding: 12px; text-align: center;">年間返済額</th>
+                                    <th style="padding: 12px; text-align: center;">税引前CF</th>
+                                    <th style="padding: 12px; text-align: center;">税引後CF</th>
+                                    <th style="padding: 12px; text-align: center;">累積CF</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cashFlowTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- 物件比較エリア -->
@@ -426,6 +453,12 @@
                         <table id="comparisonTable" style="width: 100%; border-collapse: collapse;">
                             <!-- テーブルが動的に生成されます -->
                         </table>
+                    </div>
+
+                    <!-- 5年分キャッシュフロー比較グラフ -->
+                    <h3 style="font-size: 1.1rem; color: #667eea; margin-top: 30px; margin-bottom: 15px;">5年分キャッシュフロー比較</h3>
+                    <div style="background: white; padding: 20px; border-radius: 15px;">
+                        <canvas id="comparisonCashFlowChart"></canvas>
                     </div>
                 </div>
             </div>
@@ -546,6 +579,7 @@
             // 結果表示
             displayRadarChart(radarData);
             displayMetricsTable(metrics, grades);
+            displayCashFlowChart(inputs, cashFlow);
 
             // 結果エリアを表示
             document.getElementById('results').classList.add('show');
@@ -912,6 +946,49 @@
             return scoreMap[grade] || 1;
         }
 
+        // 5年分のキャッシュフロー計算
+        function calculateCashFlowYears(inputs, cashFlow, years = 5) {
+            const yearlyData = [];
+            let cumulativeCF = 0;
+
+            for (let year = 1; year <= years; year++) {
+                // 家賃下落を反映
+                const rentThisYear = inputs.annualRent * Math.pow(1 - inputs.rentDeclineRate / 100, year - 1);
+                const effectiveRentThisYear = rentThisYear * (1 - inputs.vacancyRate / 100);
+
+                // 経費（固定）
+                const expensesThisYear = cashFlow.totalExpenses;
+
+                // NOI
+                const noiThisYear = effectiveRentThisYear - expensesThisYear;
+
+                // 返済額（固定）
+                const paymentThisYear = cashFlow.annualPayment;
+
+                // 税引前CF
+                const beforeTaxCFThisYear = noiThisYear - paymentThisYear;
+
+                // 税引後CF
+                const afterTaxCFThisYear = beforeTaxCFThisYear * 0.8;
+
+                // 累積CF
+                cumulativeCF += afterTaxCFThisYear;
+
+                yearlyData.push({
+                    year: year,
+                    rent: effectiveRentThisYear,
+                    expenses: expensesThisYear,
+                    noi: noiThisYear,
+                    payment: paymentThisYear,
+                    beforeTaxCF: beforeTaxCFThisYear,
+                    afterTaxCF: afterTaxCFThisYear,
+                    cumulativeCF: cumulativeCF
+                });
+            }
+
+            return yearlyData;
+        }
+
         // レーダーチャート表示
         function displayRadarChart(radarData) {
             // Chart.jsが読み込まれていない場合はスキップ
@@ -983,6 +1060,189 @@
                 document.getElementById('radarChart').parentElement.innerHTML =
                     '<p style="text-align:center;color:#f44336;padding:40px;">レーダーチャートの描画中にエラーが発生しました。</p>';
             }
+        }
+
+        // キャッシュフローグラフ表示（単一物件用）
+        function displayCashFlowChart(inputs, cashFlow) {
+            if (!chartJsLoaded || typeof Chart === 'undefined') {
+                console.warn('Chart.jsが読み込まれていません');
+                return;
+            }
+
+            const yearlyData = calculateCashFlowYears(inputs, cashFlow, 5);
+
+            const ctx = document.getElementById('cashFlowChart').getContext('2d');
+
+            // 既存のチャートがあれば破棄
+            if (window.cashFlowChartInstance) {
+                window.cashFlowChartInstance.destroy();
+            }
+
+            // データの準備
+            const years = yearlyData.map(d => d.year + '年目');
+            const rentData = yearlyData.map(d => d.rent);
+            const expensesData = yearlyData.map(d => -d.expenses); // マイナス値として表示
+            const paymentData = yearlyData.map(d => -d.payment); // マイナス値として表示
+            const afterTaxCFData = yearlyData.map(d => d.afterTaxCF);
+            const cumulativeCFData = yearlyData.map(d => d.cumulativeCF);
+
+            window.cashFlowChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: years,
+                    datasets: [
+                        {
+                            label: '実質家賃収入',
+                            data: rentData,
+                            backgroundColor: 'rgba(76, 175, 80, 0.8)',
+                            borderColor: 'rgba(76, 175, 80, 1)',
+                            borderWidth: 1,
+                            stack: 'stack0'
+                        },
+                        {
+                            label: '年間経費',
+                            data: expensesData,
+                            backgroundColor: 'rgba(255, 152, 0, 0.8)',
+                            borderColor: 'rgba(255, 152, 0, 1)',
+                            borderWidth: 1,
+                            stack: 'stack0'
+                        },
+                        {
+                            label: '年間返済額',
+                            data: paymentData,
+                            backgroundColor: 'rgba(244, 67, 54, 0.8)',
+                            borderColor: 'rgba(244, 67, 54, 1)',
+                            borderWidth: 1,
+                            stack: 'stack0'
+                        },
+                        {
+                            label: '税引後CF',
+                            data: afterTaxCFData,
+                            type: 'line',
+                            borderColor: 'rgba(33, 150, 243, 1)',
+                            backgroundColor: 'rgba(33, 150, 243, 0.2)',
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            fill: false,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: '累積CF',
+                            data: cumulativeCFData,
+                            type: 'line',
+                            borderColor: 'rgba(156, 39, 176, 1)',
+                            backgroundColor: 'rgba(156, 39, 176, 0.2)',
+                            borderWidth: 3,
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            fill: false,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            title: {
+                                display: true,
+                                text: '経過年数',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            title: {
+                                display: true,
+                                text: '金額（万円）',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString() + '万円';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 12
+                                },
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(2) + '万円';
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // データテーブルも表示
+            displayCashFlowTable(yearlyData);
+        }
+
+        // キャッシュフローテーブル表示
+        function displayCashFlowTable(yearlyData) {
+            const tbody = document.getElementById('cashFlowTableBody');
+            tbody.innerHTML = '';
+
+            yearlyData.forEach((data, index) => {
+                const row = tbody.insertRow();
+                if (index % 2 === 0) {
+                    row.style.backgroundColor = '#f8f9fa';
+                }
+
+                const cells = [
+                    data.year + '年目',
+                    data.rent.toFixed(2) + '万円',
+                    data.expenses.toFixed(2) + '万円',
+                    data.noi.toFixed(2) + '万円',
+                    data.payment.toFixed(2) + '万円',
+                    data.beforeTaxCF.toFixed(2) + '万円',
+                    data.afterTaxCF.toFixed(2) + '万円',
+                    data.cumulativeCF.toFixed(2) + '万円'
+                ];
+
+                cells.forEach((cellData, cellIndex) => {
+                    const cell = row.insertCell();
+                    cell.textContent = cellData;
+                    cell.style.cssText = 'padding: 12px; text-align: center; border: 1px solid #ddd;';
+
+                    // CFがマイナスの場合は赤字で表示
+                    if (cellIndex >= 5 && parseFloat(cellData) < 0) {
+                        cell.style.color = '#f44336';
+                        cell.style.fontWeight = 'bold';
+                    }
+                });
+            });
         }
 
         // 指標一覧表表示
@@ -1320,6 +1580,7 @@
 
             displayComparisonRadarChart();
             displayComparisonTable();
+            displayComparisonCashFlowChart();
             document.getElementById('comparisonResults').style.display = 'block';
             document.getElementById('comparisonResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
@@ -1408,6 +1669,139 @@
                                     size: 14
                                 },
                                 padding: 15
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 比較キャッシュフローグラフ表示
+        function displayComparisonCashFlowChart() {
+            if (!chartJsLoaded || typeof Chart === 'undefined') {
+                console.warn('Chart.jsが読み込まれていません');
+                return;
+            }
+
+            const ctx = document.getElementById('comparisonCashFlowChart').getContext('2d');
+
+            // 既存のチャートがあれば破棄
+            if (window.comparisonCashFlowChartInstance) {
+                window.comparisonCashFlowChartInstance.destroy();
+            }
+
+            // 10色のカラーパレット
+            const colors = [
+                'rgba(102, 126, 234, 1)',
+                'rgba(240, 147, 251, 1)',
+                'rgba(79, 172, 254, 1)',
+                'rgba(250, 112, 154, 1)',
+                'rgba(254, 202, 87, 1)',
+                'rgba(72, 219, 251, 1)',
+                'rgba(29, 209, 161, 1)',
+                'rgba(255, 99, 72, 1)',
+                'rgba(162, 155, 254, 1)',
+                'rgba(253, 121, 168, 1)'
+            ];
+
+            const datasets = [];
+
+            savedProperties.forEach((property, index) => {
+                const yearlyData = calculateCashFlowYears(property.inputs, property.cashFlow, 5);
+                const colorIndex = index % colors.length;
+
+                // 税引後CFの折れ線
+                datasets.push({
+                    label: property.name + ' (税引後CF)',
+                    data: yearlyData.map(d => d.afterTaxCF),
+                    borderColor: colors[colorIndex],
+                    backgroundColor: colors[colorIndex].replace('1)', '0.2)'),
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    fill: false,
+                    type: 'line'
+                });
+
+                // 累積CFの折れ線（破線）
+                datasets.push({
+                    label: property.name + ' (累積CF)',
+                    data: yearlyData.map(d => d.cumulativeCF),
+                    borderColor: colors[colorIndex],
+                    backgroundColor: colors[colorIndex].replace('1)', '0.1)'),
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    fill: false,
+                    type: 'line'
+                });
+            });
+
+            const years = ['1年目', '2年目', '3年目', '4年目', '5年目'];
+
+            window.comparisonCashFlowChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: years,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '経過年数',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '金額（万円）',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString() + '万円';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 11
+                                },
+                                padding: 10,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(2) + '万円';
+                                    return label;
+                                }
                             }
                         }
                     }
