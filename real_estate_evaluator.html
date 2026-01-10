@@ -397,7 +397,7 @@
 
             <!-- 物件比較エリア -->
             <div class="section" id="comparisonSection" style="display: none; margin-top: 40px; padding: 30px; background: #f8f9fa; border-radius: 15px;">
-                <h2 class="section-title">物件比較（最大3件）</h2>
+                <h2 class="section-title">物件比較（最大10件）</h2>
 
                 <!-- 保存済み物件リスト -->
                 <div id="savedPropertiesList" style="margin-bottom: 30px;">
@@ -1026,7 +1026,7 @@
             });
         }
 
-        // CSV生成関数
+        // CSV生成関数（インポート互換形式）
         function generateCSV() {
             if (!lastCalculationData) {
                 alert('計算結果がありません。先に「収益性を評価する」ボタンをクリックしてください。');
@@ -1035,88 +1035,26 @@
 
             const { inputs, cashFlow, metrics, grades, timestamp } = lastCalculationData;
 
-            // CSVヘッダーとデータを作成
+            // インポート互換形式でCSVを生成
             let csv = '';
 
-            // タイトルと日時
-            csv += '不動産収益性評価ツール - 計算結果\n';
-            csv += '計算日時,' + timestamp.toLocaleString('ja-JP') + '\n';
-            csv += '\n';
+            // ヘッダー行（インポート用と同じ形式）
+            csv += '物件タイプ,物件価格,年間家賃収入,年間管理費,年間修繕積立金,年間固定資産税,その他経費,借入額,金利,借入期間,想定空室率,年間家賃下落率,初期投資額\n';
 
-            // 入力データセクション
-            csv += '=== 入力データ ===\n';
-            csv += 'カテゴリ,項目,値,単位\n';
-            csv += '物件基本情報,物件タイプ,' + inputs.propertyType + ',\n';
-            csv += '物件基本情報,物件価格,' + inputs.propertyPrice + ',万円\n';
-            csv += '物件基本情報,年間家賃収入（満室想定）,' + inputs.annualRent + ',万円\n';
-            csv += '運営経費,年間管理費,' + inputs.managementFee + ',万円\n';
-            csv += '運営経費,年間修繕積立金・維持費,' + inputs.maintenanceFee + ',万円\n';
-            csv += '運営経費,年間固定資産税等,' + inputs.propertyTax + ',万円\n';
-            csv += '運営経費,その他経費,' + inputs.otherExpenses + ',万円\n';
-            csv += 'ローン条件,借入額,' + inputs.loanAmount + ',万円\n';
-            csv += 'ローン条件,金利,' + inputs.interestRate + ',%\n';
-            csv += 'ローン条件,借入期間,' + inputs.loanTerm + ',年\n';
-            csv += 'リスク想定,想定空室率,' + inputs.vacancyRate + ',%\n';
-            csv += 'リスク想定,年間家賃下落率,' + inputs.rentDeclineRate + ',%\n';
-            csv += '自己資金,初期投資額,' + inputs.initialInvestment + ',万円\n';
-            csv += '\n';
-
-            // キャッシュフロー情報
-            csv += '=== キャッシュフロー情報 ===\n';
-            csv += '項目,値,単位\n';
-            csv += '実質年間家賃収入,' + cashFlow.effectiveAnnualRent.toFixed(2) + ',万円\n';
-            csv += '年間経費合計,' + cashFlow.totalExpenses.toFixed(2) + ',万円\n';
-            csv += '年間純収益（NOI）,' + cashFlow.noi.toFixed(2) + ',万円\n';
-            csv += '年間返済額,' + cashFlow.annualPayment.toFixed(2) + ',万円\n';
-            csv += '年間税引前CF,' + cashFlow.beforeTaxCF.toFixed(2) + ',万円\n';
-            csv += '年間税引後CF,' + cashFlow.afterTaxCF.toFixed(2) + ',万円\n';
-            csv += '\n';
-
-            // 評価指標セクション
-            csv += '=== 評価指標（12指標） ===\n';
-            csv += 'カテゴリ,指標名,計算値,単位,評価ランク\n';
-
-            // キャッシュフロー系
-            csv += 'キャッシュフロー系,表面利回り,' + metrics.grossYield.toFixed(2) + ',%,' + grades.grossYield + '\n';
-            csv += 'キャッシュフロー系,実質利回り,' + metrics.netYield.toFixed(2) + ',%,' + grades.netYield + '\n';
-            csv += 'キャッシュフロー系,FCR,' + metrics.fcr.toFixed(2) + ',%,' + grades.fcr + '\n';
-            csv += 'キャッシュフロー系,CCR,' + metrics.ccr.toFixed(2) + ',%,' + grades.ccr + '\n';
-
-            // 投資効率系
-            csv += '投資効率系,ROI（10年）,' + metrics.roi.toFixed(2) + ',%,' + grades.roi + '\n';
-            csv += '投資効率系,IRR,' + metrics.irr.toFixed(2) + ',%,' + grades.irr + '\n';
-            csv += '投資効率系,回収期間,' + metrics.paybackPeriod.toFixed(1) + ',年,' + grades.paybackPeriod + '\n';
-
-            // リスク系
-            csv += 'リスク系,実質空室率,' + metrics.vacancyRate.toFixed(1) + ',%,' + grades.vacancyRate + '\n';
-            csv += 'リスク系,返済比率,' + metrics.debtServiceRatio.toFixed(2) + ',%,' + grades.debtServiceRatio + '\n';
-            csv += 'リスク系,DSCR,' + metrics.dscr.toFixed(2) + ',,' + grades.dscr + '\n';
-
-            // 資産価値系
-            csv += '資産価値系,DCF評価額,' + metrics.dcfValue.toFixed(0) + ',万円,' + grades.dcfRatio + '\n';
-            csv += '資産価値系,キャップレート,' + metrics.capRate.toFixed(2) + ',%,' + grades.capRate + '\n';
-            csv += '\n';
-
-            // 6軸評価サマリー
-            csv += '=== 6軸評価サマリー ===\n';
-            csv += '評価軸,評価ランク,スコア\n';
-            csv += '収益性（表面利回り）,' + grades.grossYield + ',' + gradeToScore(grades.grossYield) + '\n';
-            csv += '実質収益（実質利回り）,' + grades.netYield + ',' + gradeToScore(grades.netYield) + '\n';
-            csv += 'CF効率（FCR）,' + grades.fcr + ',' + gradeToScore(grades.fcr) + '\n';
-            csv += '投資効率（回収期間）,' + grades.paybackPeriod + ',' + gradeToScore(grades.paybackPeriod) + '\n';
-            csv += '安全性（DSCR）,' + grades.dscr + ',' + gradeToScore(grades.dscr) + '\n';
-            csv += '資産価値（評価額/購入価格）,' + grades.dcfRatio + ',' + gradeToScore(grades.dcfRatio) + '\n';
-            csv += '\n';
-
-            // 総合評価
-            const totalScore = gradeToScore(grades.grossYield) + gradeToScore(grades.netYield) +
-                              gradeToScore(grades.fcr) + gradeToScore(grades.paybackPeriod) +
-                              gradeToScore(grades.dscr) + gradeToScore(grades.dcfRatio);
-            const averageScore = (totalScore / 6).toFixed(2);
-            csv += '=== 総合評価 ===\n';
-            csv += '項目,値\n';
-            csv += '6軸合計スコア,' + totalScore + ' / 30\n';
-            csv += '6軸平均スコア,' + averageScore + ' / 5.0\n';
+            // データ行
+            csv += inputs.propertyType + ',';
+            csv += inputs.propertyPrice + ',';
+            csv += inputs.annualRent + ',';
+            csv += inputs.managementFee + ',';
+            csv += inputs.maintenanceFee + ',';
+            csv += inputs.propertyTax + ',';
+            csv += inputs.otherExpenses + ',';
+            csv += inputs.loanAmount + ',';
+            csv += inputs.interestRate + ',';
+            csv += inputs.loanTerm + ',';
+            csv += inputs.vacancyRate + ',';
+            csv += inputs.rentDeclineRate + ',';
+            csv += inputs.initialInvestment + '\n';
 
             return csv;
         }
@@ -1218,20 +1156,26 @@
                 return;
             }
 
-            // 最大3件まで
-            if (savedProperties.length >= 3) {
-                alert('保存できる物件は最大3件です。既存の物件を削除してから保存してください。');
+            // 最大10件まで
+            if (savedProperties.length >= 10) {
+                alert('保存できる物件は最大10件です。既存の物件を削除してから保存してください。');
                 return;
             }
 
-            // 物件名を入力
-            const propertyName = prompt('物件名を入力してください（例：物件A、渋谷マンション）', '物件' + (savedProperties.length + 1));
-            if (!propertyName) return;
+            // 物件名を自動生成（物件タイプ + 物件価格）
+            const defaultName = lastCalculationData.inputs.propertyType + '_' + lastCalculationData.inputs.propertyPrice + '万円';
+            const propertyName = prompt('物件名を入力してください（空欄で自動命名）', defaultName);
+
+            // キャンセルされた場合は処理を中断
+            if (propertyName === null) return;
+
+            // 空欄の場合はデフォルト名を使用
+            const finalName = propertyName.trim() || defaultName;
 
             // データを保存
             const propertyData = {
                 id: Date.now(),
-                name: propertyName,
+                name: finalName,
                 ...lastCalculationData
             };
 
@@ -1239,7 +1183,9 @@
             updatePropertyList();
             showComparisonSection();
             updateStatus('物件を保存しました');
-            alert('物件「' + propertyName + '」を保存しました。\n現在の保存件数: ' + savedProperties.length + '/3件');
+
+            // 保存完了メッセージ（簡潔に）
+            console.log('物件「' + finalName + '」を保存しました。現在: ' + savedProperties.length + '/10件');
         }
 
         // 物件リスト更新
@@ -1247,11 +1193,17 @@
             const container = document.getElementById('propertiesListContainer');
             container.innerHTML = '';
 
+            // 10色のカラーパレット
+            const colors = [
+                '#667eea', '#f093fb', '#4facfe', '#fa709a', '#feca57',
+                '#48dbfb', '#1dd1a1', '#ff6348', '#a29bfe', '#fd79a8'
+            ];
+
             savedProperties.forEach((property, index) => {
                 const card = document.createElement('div');
                 card.style.cssText = 'background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);';
 
-                const color = ['#667eea', '#f093fb', '#4facfe'][index];
+                const color = colors[index % colors.length];
 
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -1323,24 +1275,33 @@
                 window.comparisonChartInstance.destroy();
             }
 
+            // 10色のカラーパレット（レーダーチャート用）
             const colors = [
-                { bg: 'rgba(102, 126, 234, 0.3)', border: 'rgba(102, 126, 234, 1)' },
-                { bg: 'rgba(240, 147, 251, 0.3)', border: 'rgba(240, 147, 251, 1)' },
-                { bg: 'rgba(79, 172, 254, 0.3)', border: 'rgba(79, 172, 254, 1)' }
+                { bg: 'rgba(102, 126, 234, 0.2)', border: 'rgba(102, 126, 234, 1)' },
+                { bg: 'rgba(240, 147, 251, 0.2)', border: 'rgba(240, 147, 251, 1)' },
+                { bg: 'rgba(79, 172, 254, 0.2)', border: 'rgba(79, 172, 254, 1)' },
+                { bg: 'rgba(250, 112, 154, 0.2)', border: 'rgba(250, 112, 154, 1)' },
+                { bg: 'rgba(254, 202, 87, 0.2)', border: 'rgba(254, 202, 87, 1)' },
+                { bg: 'rgba(72, 219, 251, 0.2)', border: 'rgba(72, 219, 251, 1)' },
+                { bg: 'rgba(29, 209, 161, 0.2)', border: 'rgba(29, 209, 161, 1)' },
+                { bg: 'rgba(255, 99, 72, 0.2)', border: 'rgba(255, 99, 72, 1)' },
+                { bg: 'rgba(162, 155, 254, 0.2)', border: 'rgba(162, 155, 254, 1)' },
+                { bg: 'rgba(253, 121, 168, 0.2)', border: 'rgba(253, 121, 168, 1)' }
             ];
 
             const datasets = savedProperties.map((property, index) => {
                 const radarData = calculateRadarData(property.metrics);
+                const colorIndex = index % colors.length;
                 return {
                     label: property.name,
                     data: radarData.values,
-                    backgroundColor: colors[index].bg,
-                    borderColor: colors[index].border,
+                    backgroundColor: colors[colorIndex].bg,
+                    borderColor: colors[colorIndex].border,
                     borderWidth: 2,
-                    pointBackgroundColor: colors[index].border,
+                    pointBackgroundColor: colors[colorIndex].border,
                     pointBorderColor: '#fff',
                     pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: colors[index].border,
+                    pointHoverBorderColor: colors[colorIndex].border,
                     pointRadius: 4,
                     pointHoverRadius: 6
                 };
