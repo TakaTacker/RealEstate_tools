@@ -1026,7 +1026,7 @@
             });
         }
 
-        // CSV生成関数（インポート互換形式）
+        // CSV生成関数（詳細版：インポート情報 + 計算結果）
         function generateCSV() {
             if (!lastCalculationData) {
                 alert('計算結果がありません。先に「収益性を評価する」ボタンをクリックしてください。');
@@ -1035,13 +1035,26 @@
 
             const { inputs, cashFlow, metrics, grades, timestamp } = lastCalculationData;
 
-            // インポート互換形式でCSVを生成
+            // CSVヘッダー行の構築
             let csv = '';
 
-            // ヘッダー行（インポート用と同じ形式）
-            csv += '物件タイプ,物件価格,年間家賃収入,年間管理費,年間修繕積立金,年間固定資産税,その他経費,借入額,金利,借入期間,想定空室率,年間家賃下落率,初期投資額\n';
+            // 1. インポート情報（13列）
+            csv += '物件タイプ,物件価格,年間家賃収入,年間管理費,年間修繕積立金,年間固定資産税,その他経費,借入額,金利,借入期間,想定空室率,年間家賃下落率,初期投資額,';
 
-            // データ行
+            // 2. キャッシュフロー情報（6列）
+            csv += '実質年間家賃収入,年間経費合計,年間純収益(NOI),年間返済額,年間税引前CF,年間税引後CF,';
+
+            // 3. 評価指標（12列 + 評価ランク12列）
+            csv += '表面利回り,表面利回り評価,実質利回り,実質利回り評価,FCR,FCR評価,CCR,CCR評価,ROI(10年),ROI評価,IRR,IRR評価,回収期間,回収期間評価,実質空室率,空室率評価,返済比率,返済比率評価,DSCR,DSCR評価,DCF評価額,DCF評価,キャップレート,キャップレート評価,';
+
+            // 4. 6軸評価サマリ（6列）
+            csv += '収益性スコア,実質収益スコア,CF効率スコア,投資効率スコア,安全性スコア,資産価値スコア,';
+
+            // 5. 総合評価（2列）
+            csv += '6軸合計スコア,6軸平均スコア\n';
+
+            // データ行の構築
+            // 1. インポート情報
             csv += inputs.propertyType + ',';
             csv += inputs.propertyPrice + ',';
             csv += inputs.annualRent + ',';
@@ -1054,7 +1067,57 @@
             csv += inputs.loanTerm + ',';
             csv += inputs.vacancyRate + ',';
             csv += inputs.rentDeclineRate + ',';
-            csv += inputs.initialInvestment + '\n';
+            csv += inputs.initialInvestment + ',';
+
+            // 2. キャッシュフロー情報
+            csv += cashFlow.effectiveAnnualRent.toFixed(2) + ',';
+            csv += cashFlow.totalExpenses.toFixed(2) + ',';
+            csv += cashFlow.noi.toFixed(2) + ',';
+            csv += cashFlow.annualPayment.toFixed(2) + ',';
+            csv += cashFlow.beforeTaxCF.toFixed(2) + ',';
+            csv += cashFlow.afterTaxCF.toFixed(2) + ',';
+
+            // 3. 評価指標（値 + 評価ランク）
+            csv += metrics.grossYield.toFixed(2) + ',';
+            csv += grades.grossYield + ',';
+            csv += metrics.netYield.toFixed(2) + ',';
+            csv += grades.netYield + ',';
+            csv += metrics.fcr.toFixed(2) + ',';
+            csv += grades.fcr + ',';
+            csv += metrics.ccr.toFixed(2) + ',';
+            csv += grades.ccr + ',';
+            csv += metrics.roi.toFixed(2) + ',';
+            csv += grades.roi + ',';
+            csv += metrics.irr.toFixed(2) + ',';
+            csv += grades.irr + ',';
+            csv += metrics.paybackPeriod.toFixed(1) + ',';
+            csv += grades.paybackPeriod + ',';
+            csv += metrics.vacancyRate.toFixed(1) + ',';
+            csv += grades.vacancyRate + ',';
+            csv += metrics.debtServiceRatio.toFixed(2) + ',';
+            csv += grades.debtServiceRatio + ',';
+            csv += metrics.dscr.toFixed(2) + ',';
+            csv += grades.dscr + ',';
+            csv += metrics.dcfValue.toFixed(0) + ',';
+            csv += grades.dcfRatio + ',';
+            csv += metrics.capRate.toFixed(2) + ',';
+            csv += grades.capRate + ',';
+
+            // 4. 6軸評価サマリ（スコア）
+            csv += gradeToScore(grades.grossYield) + ',';
+            csv += gradeToScore(grades.netYield) + ',';
+            csv += gradeToScore(grades.fcr) + ',';
+            csv += gradeToScore(grades.paybackPeriod) + ',';
+            csv += gradeToScore(grades.dscr) + ',';
+            csv += gradeToScore(grades.dcfRatio) + ',';
+
+            // 5. 総合評価
+            const totalScore = gradeToScore(grades.grossYield) + gradeToScore(grades.netYield) +
+                              gradeToScore(grades.fcr) + gradeToScore(grades.paybackPeriod) +
+                              gradeToScore(grades.dscr) + gradeToScore(grades.dcfRatio);
+            const averageScore = (totalScore / 6).toFixed(2);
+            csv += totalScore + ',';
+            csv += averageScore + '\n';
 
             return csv;
         }
