@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>不動産収益性評価ツール</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 1.3rem;
+            color: #667eea;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            font-size: 0.9rem;
+            color: #333;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group .unit {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .calculate-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: block;
+            margin: 30px auto;
+            font-weight: bold;
+        }
+
+        .calculate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .calculate-btn:active {
+            transform: translateY(0);
+        }
+
+        .results {
+            display: none;
+            margin-top: 40px;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .chart-container {
+            position: relative;
+            max-width: 600px;
+            margin: 30px auto;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 15px;
+        }
+
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .metrics-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .metrics-table th,
+        .metrics-table td {
+            padding: 15px;
+            text-align: left;
+        }
+
+        .metrics-table tbody tr:nth-child(even) {
+            background: #f8f9fa;
+        }
+
+        .metrics-table tbody tr:hover {
+            background: #e9ecef;
+        }
+
+        .category-cashflow {
+            background-color: #e3f2fd !important;
+        }
+
+        .category-efficiency {
+            background-color: #f3e5f5 !important;
+        }
+
+        .category-risk {
+            background-color: #fff3e0 !important;
+        }
+
+        .category-value {
+            background-color: #e8f5e9 !important;
+        }
+
+        .grade {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        .grade-S {
+            background: #4caf50;
+            color: white;
+        }
+
+        .grade-A {
+            background: #8bc34a;
+            color: white;
+        }
+
+        .grade-B {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .grade-C {
+            background: #ff9800;
+            color: white;
+        }
+
+        .grade-D {
+            background: #f44336;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .content {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>不動産収益性評価ツール</h1>
+            <p>6軸評価による多角的な投資判断支援システム</p>
+        </div>
+
+        <div class="content">
+            <!-- 物件基本情報 -->
+            <div class="section">
+                <h2 class="section-title">物件基本情報</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="propertyType">物件タイプ</label>
+                        <select id="propertyType">
+                            <option value="一棟マンション">一棟マンション</option>
+                            <option value="区分マンション">区分マンション</option>
+                            <option value="戸建て">戸建て</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="propertyPrice">物件価格</label>
+                        <input type="number" id="propertyPrice" placeholder="例: 5000" step="10">
+                        <span class="unit">万円</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="annualRent">年間家賃収入（満室想定）</label>
+                        <input type="number" id="annualRent" placeholder="例: 400" step="10">
+                        <span class="unit">万円</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 運営経費 -->
+            <div class="section">
+                <h2 class="section-title">運営経費</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="managementFee">年間管理費</label>
+                        <input type="number" id="managementFee" placeholder="例: 20" step="1">
+                        <span class="unit">万円</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="maintenanceFee">年間修繕積立金・維持費</label>
+                        <input type="number" id="maintenanceFee" placeholder="例: 15" step="1">
+                        <span class="unit">万円</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="propertyTax">年間固定資産税等</label>
+                        <input type="number" id="propertyTax" placeholder="例: 25" step="1">
+                        <span class="unit">万円</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="otherExpenses">その他経費</label>
+                        <input type="number" id="otherExpenses" placeholder="例: 10" step="1" value="0">
+                        <span class="unit">万円</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ローン条件 -->
+            <div class="section">
+                <h2 class="section-title">ローン条件</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="loanAmount">借入額</label>
+                        <input type="number" id="loanAmount" placeholder="例: 4000" step="10">
+                        <span class="unit">万円</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="interestRate">金利</label>
+                        <input type="number" id="interestRate" placeholder="例: 2.5" step="0.1">
+                        <span class="unit">%</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="loanTerm">借入期間</label>
+                        <input type="number" id="loanTerm" placeholder="例: 25" step="1">
+                        <span class="unit">年</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- リスク想定 -->
+            <div class="section">
+                <h2 class="section-title">リスク想定</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="vacancyRate">想定空室率</label>
+                        <input type="number" id="vacancyRate" placeholder="例: 5" step="0.5" value="5">
+                        <span class="unit">%</span>
+                    </div>
+                    <div class="form-group">
+                        <label for="rentDeclineRate">年間家賃下落率</label>
+                        <input type="number" id="rentDeclineRate" placeholder="例: 0.5" step="0.1" value="0.5">
+                        <span class="unit">%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 自己資金 -->
+            <div class="section">
+                <h2 class="section-title">自己資金</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label for="initialInvestment">初期投資額（頭金 + 諸費用）</label>
+                        <input type="number" id="initialInvestment" placeholder="例: 1000" step="10">
+                        <span class="unit">万円</span>
+                    </div>
+                </div>
+            </div>
+
+            <button class="calculate-btn" onclick="calculate()">収益性を評価する</button>
+
+            <!-- 結果表示エリア -->
+            <div class="results" id="results">
+                <div class="section">
+                    <h2 class="section-title">6軸評価レーダーチャート</h2>
+                    <div class="chart-container">
+                        <canvas id="radarChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <h2 class="section-title">詳細指標一覧</h2>
+                    <table class="metrics-table" id="metricsTable">
+                        <thead>
+                            <tr>
+                                <th>カテゴリ</th>
+                                <th>指標名</th>
+                                <th>計算値</th>
+                                <th>評価</th>
+                            </tr>
+                        </thead>
+                        <tbody id="metricsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let radarChartInstance = null;
+
+        // 計算実行メイン関数
+        function calculate() {
+            // 入力値の取得
+            const inputs = getInputValues();
+
+            // バリデーション
+            if (!validateInputs(inputs)) {
+                alert('すべての必須項目を入力してください。');
+                return;
+            }
+
+            // 各種計算
+            const cashFlow = calculateCashFlow(inputs);
+            const metrics = calculateMetrics(inputs, cashFlow);
+            const grades = calculateGrades(metrics);
+            const radarData = calculateRadarData(metrics);
+
+            // 結果表示
+            displayRadarChart(radarData);
+            displayMetricsTable(metrics, grades);
+
+            // 結果エリアを表示
+            document.getElementById('results').classList.add('show');
+
+            // 結果エリアまでスクロール
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // 入力値取得
+        function getInputValues() {
+            return {
+                propertyType: document.getElementById('propertyType').value,
+                propertyPrice: parseFloat(document.getElementById('propertyPrice').value) || 0,
+                annualRent: parseFloat(document.getElementById('annualRent').value) || 0,
+                managementFee: parseFloat(document.getElementById('managementFee').value) || 0,
+                maintenanceFee: parseFloat(document.getElementById('maintenanceFee').value) || 0,
+                propertyTax: parseFloat(document.getElementById('propertyTax').value) || 0,
+                otherExpenses: parseFloat(document.getElementById('otherExpenses').value) || 0,
+                loanAmount: parseFloat(document.getElementById('loanAmount').value) || 0,
+                interestRate: parseFloat(document.getElementById('interestRate').value) || 0,
+                loanTerm: parseFloat(document.getElementById('loanTerm').value) || 0,
+                vacancyRate: parseFloat(document.getElementById('vacancyRate').value) || 0,
+                rentDeclineRate: parseFloat(document.getElementById('rentDeclineRate').value) || 0,
+                initialInvestment: parseFloat(document.getElementById('initialInvestment').value) || 0
+            };
+        }
+
+        // バリデーション
+        function validateInputs(inputs) {
+            return inputs.propertyPrice > 0 &&
+                   inputs.annualRent > 0 &&
+                   inputs.initialInvestment > 0 &&
+                   inputs.loanAmount >= 0 &&
+                   inputs.loanTerm > 0;
+        }
+
+        // キャッシュフロー計算
+        function calculateCashFlow(inputs) {
+            // 実質年間家賃収入
+            const effectiveAnnualRent = inputs.annualRent * (1 - inputs.vacancyRate / 100);
+
+            // 年間経費合計
+            const totalExpenses = inputs.managementFee + inputs.maintenanceFee +
+                                 inputs.propertyTax + inputs.otherExpenses;
+
+            // 年間純収益（NOI）
+            const noi = effectiveAnnualRent - totalExpenses;
+
+            // 年間返済額計算
+            let annualPayment = 0;
+            if (inputs.loanAmount > 0 && inputs.interestRate > 0) {
+                const monthlyRate = inputs.interestRate / 100 / 12;
+                const numPayments = inputs.loanTerm * 12;
+                const monthlyPayment = (inputs.loanAmount * 10000 * monthlyRate) /
+                                      (1 - Math.pow(1 + monthlyRate, -numPayments));
+                annualPayment = (monthlyPayment * 12) / 10000; // 万円単位
+            }
+
+            // 税引前キャッシュフロー
+            const beforeTaxCF = noi - annualPayment;
+
+            // 税引後キャッシュフロー（簡易：税率20%）
+            const afterTaxCF = beforeTaxCF * 0.8;
+
+            return {
+                effectiveAnnualRent,
+                totalExpenses,
+                noi,
+                annualPayment,
+                beforeTaxCF,
+                afterTaxCF
+            };
+        }
+
+        // 12指標の計算
+        function calculateMetrics(inputs, cashFlow) {
+            const metrics = {};
+
+            // 1. 表面利回り
+            metrics.grossYield = (inputs.annualRent / inputs.propertyPrice) * 100;
+
+            // 2. 実質利回り
+            metrics.netYield = ((cashFlow.effectiveAnnualRent - cashFlow.totalExpenses) / inputs.propertyPrice) * 100;
+
+            // 3. FCR（税引前キャッシュフロー率）
+            metrics.fcr = inputs.initialInvestment > 0 ?
+                         (cashFlow.beforeTaxCF / inputs.initialInvestment) * 100 : 0;
+
+            // 4. CCR（税引後キャッシュフロー率）
+            metrics.ccr = inputs.initialInvestment > 0 ?
+                         (cashFlow.afterTaxCF / inputs.initialInvestment) * 100 : 0;
+
+            // 5. ROI（10年想定）
+            const cumulativeProfit = cashFlow.afterTaxCF * 10;
+            metrics.roi = inputs.initialInvestment > 0 ?
+                         (cumulativeProfit / inputs.initialInvestment) * 100 : 0;
+
+            // 6. IRR（内部収益率）
+            metrics.irr = calculateIRR(inputs, cashFlow);
+
+            // 7. 回収期間
+            metrics.paybackPeriod = cashFlow.afterTaxCF > 0 ?
+                                   inputs.initialInvestment / cashFlow.afterTaxCF : 999;
+
+            // 8. 実質空室率
+            metrics.vacancyRate = inputs.vacancyRate;
+
+            // 9. 返済比率
+            metrics.debtServiceRatio = inputs.annualRent > 0 ?
+                                      (cashFlow.annualPayment / inputs.annualRent) * 100 : 0;
+
+            // 10. DSCR（債務返済カバー率）
+            metrics.dscr = cashFlow.annualPayment > 0 ?
+                          cashFlow.noi / cashFlow.annualPayment : 999;
+
+            // 11. DCF評価額
+            metrics.dcfValue = calculateDCF(inputs, cashFlow);
+
+            // 12. キャップレート
+            metrics.capRate = metrics.dcfValue > 0 ?
+                             (cashFlow.noi / metrics.dcfValue) * 100 : 0;
+
+            return metrics;
+        }
+
+        // IRR計算（ニュートン法）
+        function calculateIRR(inputs, cashFlow) {
+            const cashFlows = [-inputs.initialInvestment];
+
+            // 10年間のキャッシュフロー生成
+            for (let year = 1; year <= 10; year++) {
+                const rentThisYear = cashFlow.effectiveAnnualRent *
+                                   Math.pow(1 - inputs.rentDeclineRate / 100, year - 1);
+                const noiThisYear = rentThisYear - cashFlow.totalExpenses;
+                const cfThisYear = noiThisYear - cashFlow.annualPayment;
+                cashFlows.push(cfThisYear);
+            }
+
+            // 10年目に売却益を加算
+            const salePrice = inputs.propertyPrice * 0.8;
+            const remainingLoan = calculateRemainingLoan(inputs.loanAmount, inputs.interestRate,
+                                                        inputs.loanTerm, 10);
+            cashFlows[10] += (salePrice - remainingLoan);
+
+            // ニュートン法でIRRを計算
+            return newtonIRR(cashFlows);
+        }
+
+        // 残存ローン計算
+        function calculateRemainingLoan(loanAmount, interestRate, loanTerm, yearsPassed) {
+            if (loanAmount === 0 || interestRate === 0) return 0;
+
+            const monthlyRate = interestRate / 100 / 12;
+            const totalPayments = loanTerm * 12;
+            const paymentsMade = yearsPassed * 12;
+
+            if (paymentsMade >= totalPayments) return 0;
+
+            const monthlyPayment = (loanAmount * 10000 * monthlyRate) /
+                                  (1 - Math.pow(1 + monthlyRate, -totalPayments));
+
+            const remainingBalance = (loanAmount * 10000) *
+                                    (Math.pow(1 + monthlyRate, paymentsMade)) -
+                                    monthlyPayment *
+                                    ((Math.pow(1 + monthlyRate, paymentsMade) - 1) / monthlyRate);
+
+            return remainingBalance / 10000; // 万円単位
+        }
+
+        // ニュートン法によるIRR計算
+        function newtonIRR(cashFlows) {
+            let rate = 0.1; // 初期値10%
+            const maxIterations = 100;
+            const tolerance = 0.0001;
+
+            for (let i = 0; i < maxIterations; i++) {
+                let npv = 0;
+                let dnpv = 0;
+
+                for (let j = 0; j < cashFlows.length; j++) {
+                    npv += cashFlows[j] / Math.pow(1 + rate, j);
+                    dnpv -= j * cashFlows[j] / Math.pow(1 + rate, j + 1);
+                }
+
+                const newRate = rate - npv / dnpv;
+
+                if (Math.abs(newRate - rate) < tolerance) {
+                    return newRate * 100; // パーセント表示
+                }
+
+                rate = newRate;
+            }
+
+            return rate * 100;
+        }
+
+        // DCF評価額計算
+        function calculateDCF(inputs, cashFlow) {
+            const discountRate = 0.05; // 5%
+            let dcfValue = 0;
+
+            // 10年分のキャッシュフロー現在価値
+            for (let year = 1; year <= 10; year++) {
+                const rentThisYear = cashFlow.effectiveAnnualRent *
+                                   Math.pow(1 - inputs.rentDeclineRate / 100, year - 1);
+                const noiThisYear = rentThisYear - cashFlow.totalExpenses;
+                const cfThisYear = noiThisYear - cashFlow.annualPayment;
+
+                dcfValue += cfThisYear / Math.pow(1 + discountRate, year);
+            }
+
+            // 残存価値（10年後売却価格の現在価値）
+            const salePrice = inputs.propertyPrice * 0.8;
+            const remainingLoan = calculateRemainingLoan(inputs.loanAmount, inputs.interestRate,
+                                                        inputs.loanTerm, 10);
+            const terminalValue = (salePrice - remainingLoan) / Math.pow(1 + discountRate, 10);
+
+            dcfValue += terminalValue;
+
+            return dcfValue;
+        }
+
+        // 評価グレード計算
+        function calculateGrades(metrics) {
+            return {
+                grossYield: gradeGrossYield(metrics.grossYield),
+                netYield: gradeNetYield(metrics.netYield),
+                fcr: gradeFCR(metrics.fcr),
+                ccr: gradeCCR(metrics.ccr),
+                roi: gradeROI(metrics.roi),
+                irr: gradeIRR(metrics.irr),
+                paybackPeriod: gradePaybackPeriod(metrics.paybackPeriod),
+                vacancyRate: gradeVacancyRate(metrics.vacancyRate),
+                debtServiceRatio: gradeDebtServiceRatio(metrics.debtServiceRatio),
+                dscr: gradeDSCR(metrics.dscr),
+                dcfRatio: gradeDCFRatio(metrics.dcfValue, document.getElementById('propertyPrice').value),
+                capRate: gradeCapRate(metrics.capRate)
+            };
+        }
+
+        // 各指標の評価基準
+        function gradeGrossYield(value) {
+            if (value >= 10) return 'S';
+            if (value >= 8) return 'A';
+            if (value >= 6) return 'B';
+            if (value >= 4) return 'C';
+            return 'D';
+        }
+
+        function gradeNetYield(value) {
+            if (value >= 7) return 'S';
+            if (value >= 5.5) return 'A';
+            if (value >= 4) return 'B';
+            if (value >= 2.5) return 'C';
+            return 'D';
+        }
+
+        function gradeFCR(value) {
+            if (value >= 15) return 'S';
+            if (value >= 10) return 'A';
+            if (value >= 5) return 'B';
+            if (value >= 0) return 'C';
+            return 'D';
+        }
+
+        function gradeCCR(value) {
+            if (value >= 12) return 'S';
+            if (value >= 8) return 'A';
+            if (value >= 4) return 'B';
+            if (value >= 0) return 'C';
+            return 'D';
+        }
+
+        function gradeROI(value) {
+            if (value >= 100) return 'S';
+            if (value >= 75) return 'A';
+            if (value >= 50) return 'B';
+            if (value >= 25) return 'C';
+            return 'D';
+        }
+
+        function gradeIRR(value) {
+            if (value >= 10) return 'S';
+            if (value >= 7) return 'A';
+            if (value >= 5) return 'B';
+            if (value >= 3) return 'C';
+            return 'D';
+        }
+
+        function gradePaybackPeriod(value) {
+            if (value <= 10) return 'S';
+            if (value <= 15) return 'A';
+            if (value <= 20) return 'B';
+            if (value <= 30) return 'C';
+            return 'D';
+        }
+
+        function gradeVacancyRate(value) {
+            if (value <= 3) return 'S';
+            if (value <= 5) return 'A';
+            if (value <= 8) return 'B';
+            if (value <= 12) return 'C';
+            return 'D';
+        }
+
+        function gradeDebtServiceRatio(value) {
+            if (value <= 40) return 'S';
+            if (value <= 50) return 'A';
+            if (value <= 60) return 'B';
+            if (value <= 70) return 'C';
+            return 'D';
+        }
+
+        function gradeDSCR(value) {
+            if (value >= 1.5) return 'S';
+            if (value >= 1.3) return 'A';
+            if (value >= 1.1) return 'B';
+            if (value >= 1.0) return 'C';
+            return 'D';
+        }
+
+        function gradeDCFRatio(dcfValue, propertyPrice) {
+            const ratio = dcfValue / propertyPrice;
+            if (ratio >= 1.2) return 'S';
+            if (ratio >= 1.1) return 'A';
+            if (ratio >= 1.0) return 'B';
+            if (ratio >= 0.9) return 'C';
+            return 'D';
+        }
+
+        function gradeCapRate(value) {
+            if (value >= 8) return 'S';
+            if (value >= 6) return 'A';
+            if (value >= 5) return 'B';
+            if (value >= 4) return 'C';
+            return 'D';
+        }
+
+        // レーダーチャート用データ計算
+        function calculateRadarData(metrics) {
+            const propertyPrice = parseFloat(document.getElementById('propertyPrice').value);
+
+            return {
+                labels: ['収益性', '実質収益', 'CF効率', '投資効率', '安全性', '資産価値'],
+                values: [
+                    gradeToScore(gradeGrossYield(metrics.grossYield)),
+                    gradeToScore(gradeNetYield(metrics.netYield)),
+                    gradeToScore(gradeFCR(metrics.fcr)),
+                    gradeToScore(gradePaybackPeriod(metrics.paybackPeriod)),
+                    gradeToScore(gradeDSCR(metrics.dscr)),
+                    gradeToScore(gradeDCFRatio(metrics.dcfValue, propertyPrice))
+                ]
+            };
+        }
+
+        // グレードをスコアに変換
+        function gradeToScore(grade) {
+            const scoreMap = { 'S': 5, 'A': 4, 'B': 3, 'C': 2, 'D': 1 };
+            return scoreMap[grade] || 1;
+        }
+
+        // レーダーチャート表示
+        function displayRadarChart(radarData) {
+            const ctx = document.getElementById('radarChart').getContext('2d');
+
+            // 既存のチャートがあれば破棄
+            if (radarChartInstance) {
+                radarChartInstance.destroy();
+            }
+
+            radarChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: radarData.labels,
+                    datasets: [{
+                        label: '評価スコア',
+                        data: radarData.values,
+                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        borderWidth: 2,
+                        pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+                        pointBorderColor: '#fff',
+                        pointHoverBackgroundColor: '#fff',
+                        pointHoverBorderColor: 'rgba(54, 162, 235, 1)',
+                        pointRadius: 5,
+                        pointHoverRadius: 7
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            min: 0,
+                            max: 5,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    const labels = ['', 'D', 'C', 'B', 'A', 'S'];
+                                    return labels[value];
+                                }
+                            },
+                            pointLabels: {
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        // 指標一覧表表示
+        function displayMetricsTable(metrics, grades) {
+            const propertyPrice = parseFloat(document.getElementById('propertyPrice').value);
+            const tbody = document.getElementById('metricsTableBody');
+            tbody.innerHTML = '';
+
+            const metricsData = [
+                // キャッシュフロー系
+                { category: 'キャッシュフロー系', name: '表面利回り', value: metrics.grossYield.toFixed(2) + '%', grade: grades.grossYield, class: 'category-cashflow' },
+                { category: 'キャッシュフロー系', name: '実質利回り', value: metrics.netYield.toFixed(2) + '%', grade: grades.netYield, class: 'category-cashflow' },
+                { category: 'キャッシュフロー系', name: 'FCR', value: metrics.fcr.toFixed(2) + '%', grade: grades.fcr, class: 'category-cashflow' },
+                { category: 'キャッシュフロー系', name: 'CCR', value: metrics.ccr.toFixed(2) + '%', grade: grades.ccr, class: 'category-cashflow' },
+
+                // 投資効率系
+                { category: '投資効率系', name: 'ROI（10年）', value: metrics.roi.toFixed(2) + '%', grade: grades.roi, class: 'category-efficiency' },
+                { category: '投資効率系', name: 'IRR', value: metrics.irr.toFixed(2) + '%', grade: grades.irr, class: 'category-efficiency' },
+                { category: '投資効率系', name: '回収期間', value: metrics.paybackPeriod.toFixed(1) + '年', grade: grades.paybackPeriod, class: 'category-efficiency' },
+
+                // リスク系
+                { category: 'リスク系', name: '実質空室率', value: metrics.vacancyRate.toFixed(1) + '%', grade: grades.vacancyRate, class: 'category-risk' },
+                { category: 'リスク系', name: '返済比率', value: metrics.debtServiceRatio.toFixed(2) + '%', grade: grades.debtServiceRatio, class: 'category-risk' },
+                { category: 'リスク系', name: 'DSCR', value: metrics.dscr.toFixed(2), grade: grades.dscr, class: 'category-risk' },
+
+                // 資産価値系
+                { category: '資産価値系', name: 'DCF評価額', value: metrics.dcfValue.toFixed(0) + '万円', grade: grades.dcfRatio, class: 'category-value' },
+                { category: '資産価値系', name: 'キャップレート', value: metrics.capRate.toFixed(2) + '%', grade: grades.capRate, class: 'category-value' }
+            ];
+
+            metricsData.forEach(item => {
+                const row = tbody.insertRow();
+                row.className = item.class;
+
+                row.insertCell(0).textContent = item.category;
+                row.insertCell(1).textContent = item.name;
+                row.insertCell(2).textContent = item.value;
+
+                const gradeCell = row.insertCell(3);
+                gradeCell.innerHTML = `<span class="grade grade-${item.grade}">${item.grade}</span>`;
+            });
+        }
+    </script>
+</body>
+</html>
