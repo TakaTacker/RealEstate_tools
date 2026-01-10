@@ -359,6 +359,8 @@
 
             <div style="text-align: center; margin: 20px 0;">
                 <button style="background: #9e9e9e; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; margin-right: 10px; font-size: 0.9rem;" onclick="fillSampleData()">サンプルデータを入力</button>
+                <input type="file" id="csvFileInput" accept=".csv" style="display: none;" onchange="importFromCSV(event)">
+                <button style="background: #2196f3; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer; font-size: 0.9rem;" onclick="document.getElementById('csvFileInput').click()">📄 CSVから読み込み</button>
             </div>
 
             <button class="calculate-btn" onclick="calculate()">収益性を評価する</button>
@@ -366,7 +368,8 @@
             <!-- 結果表示エリア -->
             <div class="results" id="results">
                 <div style="text-align: center; margin-bottom: 20px;">
-                    <button style="background: #4caf50; color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-size: 1rem; font-weight: bold; box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3);" onclick="downloadCSV()">📥 結果をCSVダウンロード</button>
+                    <button style="background: #4caf50; color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-size: 1rem; font-weight: bold; box-shadow: 0 4px 10px rgba(76, 175, 80, 0.3); margin-right: 10px;" onclick="downloadCSV()">📥 結果をCSVダウンロード</button>
+                    <button style="background: #ff9800; color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-size: 1rem; font-weight: bold; box-shadow: 0 4px 10px rgba(255, 152, 0, 0.3);" onclick="saveProperty()">💾 物件を保存して比較</button>
                 </div>
                 <div class="section">
                     <h2 class="section-title">6軸評価レーダーチャート</h2>
@@ -391,6 +394,41 @@
                     </table>
                 </div>
             </div>
+
+            <!-- 物件比較エリア -->
+            <div class="section" id="comparisonSection" style="display: none; margin-top: 40px; padding: 30px; background: #f8f9fa; border-radius: 15px;">
+                <h2 class="section-title">物件比較（最大3件）</h2>
+
+                <!-- 保存済み物件リスト -->
+                <div id="savedPropertiesList" style="margin-bottom: 30px;">
+                    <h3 style="font-size: 1.1rem; color: #667eea; margin-bottom: 15px;">保存済み物件</h3>
+                    <div id="propertiesListContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px;">
+                        <!-- 物件カードがここに動的に追加されます -->
+                    </div>
+                </div>
+
+                <!-- 比較ボタン -->
+                <div style="text-align: center; margin: 20px 0;">
+                    <button style="background: #667eea; color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-size: 1rem; font-weight: bold;" onclick="showComparison()">📊 物件を比較する</button>
+                </div>
+
+                <!-- 比較結果表示エリア -->
+                <div id="comparisonResults" style="display: none; margin-top: 30px;">
+                    <h3 style="font-size: 1.1rem; color: #667eea; margin-bottom: 15px;">比較結果</h3>
+
+                    <!-- 比較レーダーチャート -->
+                    <div style="background: white; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                        <canvas id="comparisonRadarChart"></canvas>
+                    </div>
+
+                    <!-- 比較指標テーブル -->
+                    <div style="background: white; padding: 20px; border-radius: 15px; overflow-x: auto;">
+                        <table id="comparisonTable" style="width: 100%; border-collapse: collapse;">
+                            <!-- テーブルが動的に生成されます -->
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -404,6 +442,9 @@
 
         // 計算結果を保存（CSV出力用）
         let lastCalculationData = null;
+
+        // 物件リスト（比較用、最大3件）
+        let savedProperties = [];
 
         // ページ読み込み時の初期化
         document.addEventListener('DOMContentLoaded', function() {
@@ -1116,6 +1157,313 @@
             } else {
                 alert('お使いのブラウザではダウンロード機能がサポートされていません。');
             }
+        }
+
+        // CSVインポート関数
+        function importFromCSV(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const text = e.target.result;
+                    const lines = text.split('\n').filter(line => line.trim());
+
+                    // ヘッダー行をスキップして最初のデータ行を読み込む
+                    if (lines.length < 2) {
+                        alert('CSVファイルにデータが含まれていません。');
+                        return;
+                    }
+
+                    // 2行目（最初のデータ行）を読み込む
+                    const dataLine = lines[1].split(',');
+
+                    // データをフォームに入力
+                    if (dataLine.length >= 13) {
+                        document.getElementById('propertyType').value = dataLine[0].trim() || '区分マンション';
+                        document.getElementById('propertyPrice').value = dataLine[1].trim();
+                        document.getElementById('annualRent').value = dataLine[2].trim();
+                        document.getElementById('managementFee').value = dataLine[3].trim();
+                        document.getElementById('maintenanceFee').value = dataLine[4].trim();
+                        document.getElementById('propertyTax').value = dataLine[5].trim();
+                        document.getElementById('otherExpenses').value = dataLine[6].trim();
+                        document.getElementById('loanAmount').value = dataLine[7].trim();
+                        document.getElementById('interestRate').value = dataLine[8].trim();
+                        document.getElementById('loanTerm').value = dataLine[9].trim();
+                        document.getElementById('vacancyRate').value = dataLine[10].trim();
+                        document.getElementById('rentDeclineRate').value = dataLine[11].trim();
+                        document.getElementById('initialInvestment').value = dataLine[12].trim();
+
+                        updateStatus('CSVから読み込み完了');
+                        alert('CSVファイルからデータを読み込みました。');
+                    } else {
+                        alert('CSVファイルの形式が正しくありません。必要な列数：13列');
+                    }
+                } catch (error) {
+                    console.error('CSV読み込みエラー:', error);
+                    alert('CSVファイルの読み込み中にエラーが発生しました。');
+                }
+            };
+
+            reader.readAsText(file, 'UTF-8');
+            // ファイル選択をリセット（同じファイルを再度選択できるように）
+            event.target.value = '';
+        }
+
+        // 物件保存関数
+        function saveProperty() {
+            if (!lastCalculationData) {
+                alert('保存する物件データがありません。先に評価を実行してください。');
+                return;
+            }
+
+            // 最大3件まで
+            if (savedProperties.length >= 3) {
+                alert('保存できる物件は最大3件です。既存の物件を削除してから保存してください。');
+                return;
+            }
+
+            // 物件名を入力
+            const propertyName = prompt('物件名を入力してください（例：物件A、渋谷マンション）', '物件' + (savedProperties.length + 1));
+            if (!propertyName) return;
+
+            // データを保存
+            const propertyData = {
+                id: Date.now(),
+                name: propertyName,
+                ...lastCalculationData
+            };
+
+            savedProperties.push(propertyData);
+            updatePropertyList();
+            showComparisonSection();
+            updateStatus('物件を保存しました');
+            alert('物件「' + propertyName + '」を保存しました。\n現在の保存件数: ' + savedProperties.length + '/3件');
+        }
+
+        // 物件リスト更新
+        function updatePropertyList() {
+            const container = document.getElementById('propertiesListContainer');
+            container.innerHTML = '';
+
+            savedProperties.forEach((property, index) => {
+                const card = document.createElement('div');
+                card.style.cssText = 'background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);';
+
+                const color = ['#667eea', '#f093fb', '#4facfe'][index];
+
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h4 style="color: ${color}; margin: 0; font-size: 1.1rem;">📍 ${property.name}</h4>
+                        <button onclick="deleteProperty(${property.id})" style="background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8rem;">削除</button>
+                    </div>
+                    <div style="font-size: 0.9rem; color: #666;">
+                        <p style="margin: 5px 0;">物件価格: ${property.inputs.propertyPrice}万円</p>
+                        <p style="margin: 5px 0;">年間家賃: ${property.inputs.annualRent}万円</p>
+                        <p style="margin: 5px 0;">表面利回り: ${property.metrics.grossYield.toFixed(2)}%</p>
+                        <p style="margin: 5px 0;">評価: ${property.timestamp.toLocaleString('ja-JP')}</p>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // 物件削除
+        function deleteProperty(id) {
+            if (confirm('この物件を削除してもよろしいですか？')) {
+                savedProperties = savedProperties.filter(p => p.id !== id);
+                updatePropertyList();
+
+                if (savedProperties.length === 0) {
+                    hideComparisonSection();
+                }
+
+                updateStatus('物件を削除しました');
+            }
+        }
+
+        // 比較セクション表示
+        function showComparisonSection() {
+            document.getElementById('comparisonSection').style.display = 'block';
+            document.getElementById('comparisonSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // 比較セクション非表示
+        function hideComparisonSection() {
+            document.getElementById('comparisonSection').style.display = 'none';
+            document.getElementById('comparisonResults').style.display = 'none';
+        }
+
+        // 比較表示
+        function showComparison() {
+            if (savedProperties.length < 2) {
+                alert('比較するには最低2件の物件を保存してください。');
+                return;
+            }
+
+            displayComparisonRadarChart();
+            displayComparisonTable();
+            document.getElementById('comparisonResults').style.display = 'block';
+            document.getElementById('comparisonResults').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // 比較レーダーチャート表示
+        function displayComparisonRadarChart() {
+            if (!chartJsLoaded || typeof Chart === 'undefined') {
+                console.warn('Chart.jsが読み込まれていません');
+                return;
+            }
+
+            const ctx = document.getElementById('comparisonRadarChart').getContext('2d');
+
+            // 既存のチャートがあれば破棄
+            if (window.comparisonChartInstance) {
+                window.comparisonChartInstance.destroy();
+            }
+
+            const colors = [
+                { bg: 'rgba(102, 126, 234, 0.3)', border: 'rgba(102, 126, 234, 1)' },
+                { bg: 'rgba(240, 147, 251, 0.3)', border: 'rgba(240, 147, 251, 1)' },
+                { bg: 'rgba(79, 172, 254, 0.3)', border: 'rgba(79, 172, 254, 1)' }
+            ];
+
+            const datasets = savedProperties.map((property, index) => {
+                const radarData = calculateRadarData(property.metrics);
+                return {
+                    label: property.name,
+                    data: radarData.values,
+                    backgroundColor: colors[index].bg,
+                    borderColor: colors[index].border,
+                    borderWidth: 2,
+                    pointBackgroundColor: colors[index].border,
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: colors[index].border,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                };
+            });
+
+            window.comparisonChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['収益性', '実質収益', 'CF効率', '投資効率', '安全性', '資産価値'],
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            min: 0,
+                            max: 5,
+                            ticks: {
+                                stepSize: 1,
+                                callback: function(value) {
+                                    const labels = ['', 'D', 'C', 'B', 'A', 'S'];
+                                    return labels[value];
+                                }
+                            },
+                            pointLabels: {
+                                font: {
+                                    size: 13,
+                                    weight: 'bold'
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 14
+                                },
+                                padding: 15
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 比較テーブル表示
+        function displayComparisonTable() {
+            const table = document.getElementById('comparisonTable');
+            table.innerHTML = '';
+
+            // ヘッダー行
+            const thead = document.createElement('thead');
+            thead.style.cssText = 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;';
+            const headerRow = thead.insertRow();
+
+            const th1 = document.createElement('th');
+            th1.textContent = '指標';
+            th1.style.cssText = 'padding: 15px; text-align: left; border: 1px solid #ddd;';
+            headerRow.appendChild(th1);
+
+            savedProperties.forEach((property, index) => {
+                const th = document.createElement('th');
+                th.textContent = property.name;
+                th.style.cssText = 'padding: 15px; text-align: center; border: 1px solid #ddd;';
+                headerRow.appendChild(th);
+            });
+
+            table.appendChild(thead);
+
+            // データ行
+            const tbody = document.createElement('tbody');
+
+            // 比較する指標のリスト
+            const metrics = [
+                { name: '表面利回り', key: 'grossYield', unit: '%', gradeKey: 'grossYield' },
+                { name: '実質利回り', key: 'netYield', unit: '%', gradeKey: 'netYield' },
+                { name: 'FCR', key: 'fcr', unit: '%', gradeKey: 'fcr' },
+                { name: 'CCR', key: 'ccr', unit: '%', gradeKey: 'ccr' },
+                { name: 'ROI（10年）', key: 'roi', unit: '%', gradeKey: 'roi' },
+                { name: 'IRR', key: 'irr', unit: '%', gradeKey: 'irr' },
+                { name: '回収期間', key: 'paybackPeriod', unit: '年', gradeKey: 'paybackPeriod' },
+                { name: 'DSCR', key: 'dscr', unit: '', gradeKey: 'dscr' },
+                { name: 'DCF評価額', key: 'dcfValue', unit: '万円', gradeKey: 'dcfRatio' },
+                { name: '物件価格', key: 'propertyPrice', unit: '万円', source: 'inputs', gradeKey: null },
+                { name: '年間家賃収入', key: 'annualRent', unit: '万円', source: 'inputs', gradeKey: null },
+            ];
+
+            metrics.forEach((metric, rowIndex) => {
+                const row = tbody.insertRow();
+                if (rowIndex % 2 === 0) {
+                    row.style.backgroundColor = '#f8f9fa';
+                }
+
+                const nameCell = row.insertCell();
+                nameCell.textContent = metric.name;
+                nameCell.style.cssText = 'padding: 12px; font-weight: 500; border: 1px solid #ddd;';
+
+                savedProperties.forEach(property => {
+                    const cell = row.insertCell();
+                    const source = metric.source || 'metrics';
+                    const value = property[source][metric.key];
+                    const formattedValue = metric.unit === '年' || metric.unit === '' ?
+                                          value.toFixed(metric.unit === '' ? 2 : 1) :
+                                          value.toFixed(metric.key === 'dcfValue' ? 0 : 2);
+
+                    let content = formattedValue + metric.unit;
+
+                    if (metric.gradeKey) {
+                        const grade = property.grades[metric.gradeKey];
+                        content += ` <span class="grade grade-${grade}" style="margin-left: 5px;">${grade}</span>`;
+                    }
+
+                    cell.innerHTML = content;
+                    cell.style.cssText = 'padding: 12px; text-align: center; border: 1px solid #ddd;';
+                });
+            });
+
+            table.appendChild(tbody);
         }
     </script>
 </body>
