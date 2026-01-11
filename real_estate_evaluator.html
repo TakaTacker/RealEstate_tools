@@ -266,7 +266,7 @@
                         <small>※スマホの場合：下記コードをコピーして新規ブックマークのURLに貼り付け</small>
                     </p>
                     <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
-                        <a href="javascript:(function(){try{let d={};let t=document.querySelector('.bukken_name')?.textContent||'';if(t.includes('マンション'))d.propertyType='区分マンション';else if(t.includes('アパート')||t.includes('一棟'))d.propertyType='一棟マンション';else if(t.includes('戸建'))d.propertyType='戸建て';else d.propertyType='区分マンション';let p=document.querySelector('.price .num')?.textContent?.replace(/[^0-9]/g,'')||'';d.propertyPrice=p?Math.round(parseInt(p)/10000):'';let y=document.querySelector('.yield .num')?.textContent?.replace(/[^0-9.]/g,'')||'';if(y&&d.propertyPrice){d.annualRent=Math.round(d.propertyPrice*parseFloat(y)/100);}let rows=document.querySelectorAll('.detail_table tr');rows.forEach(r=>{let h=r.querySelector('th')?.textContent||'';let v=r.querySelector('td')?.textContent?.replace(/[^0-9]/g,'')||'';if(h.includes('管理費')&&v)d.managementFee=Math.round(parseInt(v)*12/10000);if(h.includes('修繕積立金')&&v)d.maintenanceFee=Math.round(parseInt(v)*12/10000);});let json=JSON.stringify(d,null,2);navigator.clipboard.writeText(json).then(()=>{alert('✅ 物件データをコピーしました！\n評価ツールの「貼り付けエリア」に貼り付けてください。');}).catch(()=>{prompt('下記データをコピーしてください:',json);});}catch(e){alert('⚠️ データ取得エラー: '+e.message);}})();"
+                        <a href="javascript:(function(){try{const d={};const getEl=(selectors)=>{for(let s of selectors){const el=document.querySelector(s);if(el)return el;}return null;};const getTxt=(selectors)=>getEl(selectors)?.textContent?.trim()||'';const getNum=(txt)=>txt.replace(/[^0-9]/g,'')||'';const getDec=(txt)=>txt.replace(/[^0-9.]/g,'')||'';let t=getTxt(['.bukken_name','h1','.property_name','.title']);if(t.includes('マンション')&&!t.includes('一棟'))d.propertyType='区分マンション';else if(t.includes('アパート')||t.includes('一棟'))d.propertyType='一棟マンション';else if(t.includes('戸建'))d.propertyType='戸建て';else d.propertyType='区分マンション';let priceText=getTxt(['.price .num','.bukken_price','.price-value','dd.price','[class*=\"price\"] .num']);let p=getNum(priceText);if(p){let priceVal=parseInt(p);if(priceVal>100000)d.propertyPrice=Math.round(priceVal/10000);else if(priceVal>1000)d.propertyPrice=priceVal;else d.propertyPrice='';}let yieldText=getTxt(['.yield .num','.bukken_yield','.yield-value','dd.yield','[class*=\"yield\"] .num']);let y=getDec(yieldText);if(y){let yieldVal=parseFloat(y);if(yieldVal>100)yieldVal=yieldVal/100;if(d.propertyPrice&&yieldVal>0)d.annualRent=Math.round(parseFloat(d.propertyPrice)*yieldVal);}const tables=document.querySelectorAll('table, .detail_table, .bukken_detail');tables.forEach(tbl=>{const rows=tbl.querySelectorAll('tr');rows.forEach(r=>{const cells=r.querySelectorAll('th, td');if(cells.length>=2){const label=cells[0].textContent.trim();const value=cells[1].textContent.trim();const num=getNum(value);if(label.includes('管理費')&&num){const val=parseInt(num);if(val>1000)d.managementFee=Math.round(val*12/10000);else d.managementFee=val;}if(label.includes('修繕積立金')&&num){const val=parseInt(num);if(val>1000)d.maintenanceFee=Math.round(val*12/10000);else d.maintenanceFee=val;}}});});const json=JSON.stringify(d,null,2);navigator.clipboard.writeText(json).then(()=>{alert('✅ 物件データをコピーしました！\n\n取得データ:\n'+json+'\n\n評価ツールの「貼り付けエリア」に貼り付けてください。');}).catch(()=>{prompt('クリップボードへのコピーに失敗しました。下記データを手動でコピーしてください:',json);});}catch(e){alert('⚠️ データ取得エラー: '+e.message+'\n\nページの読み込みが完了してから再度お試しください。');}})();"
                             style="display: inline-block; background: #1976d2; color: white; padding: 12px 24px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 0.95rem; cursor: move;">
                             📥 楽待データ取得
                         </a>
@@ -274,6 +274,23 @@
                     <p style="font-size: 0.85rem; color: #999; margin-top: 10px;">
                         💡 使い方: 楽待の物件ページを開いた状態で、登録したブックマークレットをクリックすると、物件データがクリップボードにコピーされます。
                     </p>
+
+                    <details style="margin-top: 15px;">
+                        <summary style="cursor: pointer; color: #1976d2; font-size: 0.9rem; font-weight: bold;">🔧 上級者向け: ブックマークレットのコード詳細</summary>
+                        <div style="background: #fafafa; padding: 15px; border-radius: 8px; margin-top: 10px; font-size: 0.85rem; color: #666;">
+                            <p style="margin-bottom: 10px;">このブックマークレットは以下の処理を行います：</p>
+                            <ul style="line-height: 1.8; margin-left: 20px;">
+                                <li>物件タイプ: ページタイトルから「一棟」「区分」「戸建て」を判別</li>
+                                <li>物件価格: 複数のCSSセレクターで価格要素を探索（円→万円の自動変換）</li>
+                                <li>利回り: 表面利回りから年間家賃を逆算（8.5% → 年間家賃計算）</li>
+                                <li>管理費・修繕積立金: テーブルから抽出（月額→年額の自動変換）</li>
+                            </ul>
+                            <p style="margin-top: 10px; font-size: 0.8rem; color: #999;">
+                                ※楽待のサイト構造が変更された場合、データが取得できない可能性があります。<br>
+                                ※取得データは必ず確認し、必要に応じて手入力で補完してください。
+                            </p>
+                        </div>
+                    </details>
                 </div>
 
                 <!-- ステップ2: データ貼り付け -->
