@@ -254,6 +254,48 @@
         </div>
 
         <div class="content">
+            <!-- 楽待自動入力 -->
+            <div class="section" style="background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); padding: 25px; border-radius: 15px; margin-bottom: 30px;">
+                <h2 class="section-title" style="color: #1976d2; border-bottom-color: #1976d2;">🏢 楽待から自動入力</h2>
+
+                <!-- ステップ1: ブックマークレット -->
+                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h3 style="font-size: 1rem; color: #1976d2; margin-bottom: 10px;">📌 ステップ1: ブックマークレット登録（初回のみ）</h3>
+                    <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
+                        下記のボタンをブックマークバーにドラッグ&ドロップしてください。<br>
+                        <small>※スマホの場合：下記コードをコピーして新規ブックマークのURLに貼り付け</small>
+                    </p>
+                    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                        <a href="javascript:(function(){try{let d={};let t=document.querySelector('.bukken_name')?.textContent||'';if(t.includes('マンション'))d.propertyType='区分マンション';else if(t.includes('アパート')||t.includes('一棟'))d.propertyType='一棟マンション';else if(t.includes('戸建'))d.propertyType='戸建て';else d.propertyType='区分マンション';let p=document.querySelector('.price .num')?.textContent?.replace(/[^0-9]/g,'')||'';d.propertyPrice=p?Math.round(parseInt(p)/10000):'';let y=document.querySelector('.yield .num')?.textContent?.replace(/[^0-9.]/g,'')||'';if(y&&d.propertyPrice){d.annualRent=Math.round(d.propertyPrice*parseFloat(y)/100);}let rows=document.querySelectorAll('.detail_table tr');rows.forEach(r=>{let h=r.querySelector('th')?.textContent||'';let v=r.querySelector('td')?.textContent?.replace(/[^0-9]/g,'')||'';if(h.includes('管理費')&&v)d.managementFee=Math.round(parseInt(v)*12/10000);if(h.includes('修繕積立金')&&v)d.maintenanceFee=Math.round(parseInt(v)*12/10000);});let json=JSON.stringify(d,null,2);navigator.clipboard.writeText(json).then(()=>{alert('✅ 物件データをコピーしました！\n評価ツールの「貼り付けエリア」に貼り付けてください。');}).catch(()=>{prompt('下記データをコピーしてください:',json);});}catch(e){alert('⚠️ データ取得エラー: '+e.message);}})();"
+                            style="display: inline-block; background: #1976d2; color: white; padding: 12px 24px; border-radius: 25px; text-decoration: none; font-weight: bold; font-size: 0.95rem; cursor: move;">
+                            📥 楽待データ取得
+                        </a>
+                    </div>
+                    <p style="font-size: 0.85rem; color: #999; margin-top: 10px;">
+                        💡 使い方: 楽待の物件ページを開いた状態で、登録したブックマークレットをクリックすると、物件データがクリップボードにコピーされます。
+                    </p>
+                </div>
+
+                <!-- ステップ2: データ貼り付け -->
+                <div style="background: white; padding: 20px; border-radius: 10px;">
+                    <h3 style="font-size: 1rem; color: #1976d2; margin-bottom: 10px;">📋 ステップ2: データを貼り付け</h3>
+                    <textarea id="rakumachDataInput"
+                        placeholder="ブックマークレットでコピーしたデータをここに貼り付けてください。&#x0a;&#x0a;または、以下の形式で直接入力も可能です:&#x0a;物件価格: 5000&#x0a;年間家賃: 400&#x0a;管理費: 20&#x0a;修繕積立金: 15"
+                        style="width: 100%; min-height: 120px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 0.9rem; font-family: monospace; resize: vertical;"
+                    ></textarea>
+                    <div style="text-align: center; margin-top: 15px;">
+                        <button onclick="importFromRakumachi()"
+                            style="background: #1976d2; color: white; border: none; padding: 12px 30px; border-radius: 25px; cursor: pointer; font-size: 1rem; font-weight: bold; box-shadow: 0 4px 10px rgba(25, 118, 210, 0.3);">
+                            ⚡ データを反映する
+                        </button>
+                        <button onclick="document.getElementById('rakumachDataInput').value=''"
+                            style="background: #9e9e9e; color: white; border: none; padding: 12px 20px; border-radius: 25px; cursor: pointer; font-size: 0.9rem; margin-left: 10px;">
+                            クリア
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <!-- 物件基本情報 -->
             <div class="section">
                 <h2 class="section-title">物件基本情報</h2>
@@ -1470,6 +1512,131 @@
             reader.readAsText(file, 'UTF-8');
             // ファイル選択をリセット（同じファイルを再度選択できるように）
             event.target.value = '';
+        }
+
+        // 楽待データインポート関数
+        function importFromRakumachi() {
+            const textarea = document.getElementById('rakumachDataInput');
+            const inputText = textarea.value.trim();
+
+            if (!inputText) {
+                alert('データが入力されていません。\n楽待のブックマークレットで取得したデータを貼り付けてください。');
+                return;
+            }
+
+            try {
+                let data = {};
+                let importedFields = [];
+                let skippedFields = [];
+
+                // JSON形式かどうかチェック
+                if (inputText.startsWith('{')) {
+                    // JSON形式でパース
+                    data = JSON.parse(inputText);
+                } else {
+                    // key:value形式でパース
+                    const lines = inputText.split('\n');
+                    lines.forEach(line => {
+                        const match = line.match(/(.+?)[:：]\s*(.+)/);
+                        if (match) {
+                            const key = match[1].trim();
+                            const value = match[2].trim().replace(/[^0-9.]/g, '');
+
+                            // キーマッピング
+                            if (key.includes('物件価格') || key.includes('価格')) {
+                                data.propertyPrice = value;
+                            } else if (key.includes('年間家賃') || key.includes('家賃収入')) {
+                                data.annualRent = value;
+                            } else if (key.includes('管理費')) {
+                                data.managementFee = value;
+                            } else if (key.includes('修繕積立金') || key.includes('修繕')) {
+                                data.maintenanceFee = value;
+                            } else if (key.includes('固定資産税')) {
+                                data.propertyTax = value;
+                            } else if (key.includes('物件タイプ') || key.includes('タイプ')) {
+                                data.propertyType = match[2].trim();
+                            }
+                        }
+                    });
+                }
+
+                // データをフォームに反映
+                if (data.propertyType) {
+                    const typeSelect = document.getElementById('propertyType');
+                    // 物件タイプのマッピング
+                    if (data.propertyType.includes('一棟') || data.propertyType.includes('アパート')) {
+                        typeSelect.value = '一棟マンション';
+                    } else if (data.propertyType.includes('戸建')) {
+                        typeSelect.value = '戸建て';
+                    } else {
+                        typeSelect.value = '区分マンション';
+                    }
+                    importedFields.push('物件タイプ');
+                }
+
+                if (data.propertyPrice) {
+                    document.getElementById('propertyPrice').value = data.propertyPrice;
+                    importedFields.push('物件価格');
+                } else {
+                    skippedFields.push('物件価格');
+                }
+
+                if (data.annualRent) {
+                    document.getElementById('annualRent').value = data.annualRent;
+                    importedFields.push('年間家賃収入');
+                } else {
+                    skippedFields.push('年間家賃収入');
+                }
+
+                if (data.managementFee) {
+                    document.getElementById('managementFee').value = data.managementFee;
+                    importedFields.push('管理費');
+                } else {
+                    skippedFields.push('管理費');
+                }
+
+                if (data.maintenanceFee) {
+                    document.getElementById('maintenanceFee').value = data.maintenanceFee;
+                    importedFields.push('修繕積立金');
+                } else {
+                    skippedFields.push('修繕積立金');
+                }
+
+                if (data.propertyTax) {
+                    document.getElementById('propertyTax').value = data.propertyTax;
+                    importedFields.push('固定資産税');
+                }
+
+                // 結果メッセージ
+                let message = '✅ データを反映しました！\n\n';
+                if (importedFields.length > 0) {
+                    message += '【反映された項目】\n' + importedFields.join(', ') + '\n\n';
+                }
+                if (skippedFields.length > 0) {
+                    message += '【手入力が必要な項目】\n' + skippedFields.join(', ') + '\n' +
+                              '※楽待のページに情報がないか、取得できませんでした。';
+                }
+
+                updateStatus('楽待データ反映完了');
+                alert(message);
+
+                // テキストエリアをクリア
+                textarea.value = '';
+
+                // 物件基本情報セクションまでスクロール
+                document.querySelector('.section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            } catch (error) {
+                console.error('楽待データ解析エラー:', error);
+                alert('❌ データの解析に失敗しました。\n\n' +
+                      '以下の形式で入力してください：\n\n' +
+                      '【JSON形式】\n' +
+                      '{\n  "propertyPrice": "5000",\n  "annualRent": "400"\n}\n\n' +
+                      '【テキスト形式】\n' +
+                      '物件価格: 5000\n' +
+                      '年間家賃: 400\n' +
+                      '管理費: 20');
+            }
         }
 
         // 物件保存関数
